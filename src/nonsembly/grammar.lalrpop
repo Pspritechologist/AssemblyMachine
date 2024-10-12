@@ -1,0 +1,201 @@
+use super::*;
+use assembly_machine::UnwrapUnsafeSafe;
+
+grammar;
+
+match {
+	r"[ \t\n\r]+" => { }, // Whitespace
+	r"#.*" => { }, // Comments
+	// Keywords
+	r"(?i)(var|let)" => VAR,
+	r"(?i)if" => IF,
+	r"(?i)else" => ELSE,
+	r"(?i)func" => FUNC,
+	r"(?i)return" => RETURN,
+	r"(?i)break" => BREAK,
+	r"(?i)continue" => CONT,
+	r"(?i)for" => FOR,
+	r"(?i)while" => WHILE,
+	r"(?i)loop" => LOOP,
+	r"(?i)end" => END,
+	r"(?i)in" => IN,
+	// Operators
+	"=" => ASSIGN,
+	"+=" => ADD_ASSIGN,
+	"-=" => SUB_ASSIGN,
+	"*=" => MUL_ASSIGN,
+	"/=" => DIV_ASSIGN,
+	"%=" => MOD_ASSIGN,
+	"^=" => PWR_ASSIGN,
+	"==" => EQ,
+	"!=" => NEQ,
+	"<" => LT,
+	"<=" => LTE,
+	">" => GT,
+	">=" => GTE,
+	"+" => ADD,
+	"-" => SUB,
+	"^" => PWR,
+	"*" => MUL,
+	"/" => DIV,
+	"%" => MOD,
+	"++" => INCR,
+	"--" => DECR,
+	"&&" => AND,
+	"||" => OR,
+	"!" => NOT,
+	r"(?i)True" => TRUE,
+	r"(?i)False" => FALSE,
+} else {
+	r"[a-zA-Z][a-zA-Z_0-9\[\]{}]*" => IDENT,
+	// Literals
+	r"-?\d+" => INT,
+	r"-?(?:\d+\.\d*|\d*\.\d+)" => FLOAT,
+	r"'[^']*'" => STRING_RAW,
+	r#""(?:[^"\\]|\\\\|\\.)*""# => STRING_ESC,
+	r#""""(?:[^"\\]|\\\\|\\.)*""""# => STRING_ML,
+	_
+}
+
+pub script: Script = <instruction*> => <>;
+
+instruction: Instruction = {
+	Spanned<value> => Instruction::new_value(<>.0, <>.1),
+	assign,
+	assign_op,
+	function_def,
+	Spanned<control_flow> => Instruction::new_control_flow(<>.0, <>.1),
+}
+
+function_def: Instruction = {
+	<l:@L> FUNC <id:ident> "(" <args:Spanned<(<ident> ":" <ident>)>*> ")" <ret_type:(":" <ident>)?> <body:instruction*> END <r:@R> =>
+		Instruction::new_function_def(
+			id,
+			ret_type.map(|ty| ty.parse().unwrap_safe()).unwrap_or_default(),
+			args.into_iter().map(|((id, ty), span)| (id, ty.parse().unwrap_safe(), span)).collect(),
+			body,
+			Span::new(l, r),
+		),
+}
+
+control_flow: ControlFlow = {
+	IF <condition:value> <if_body:instruction*> <else_body:(ELSE <instruction*>)?> END => {
+		ControlFlow::new_if(condition, if_body, else_body)
+	},
+	WHILE <label:("(" <ident> ")")?> <cond:value> <body:instruction*> END => {
+		ControlFlow::new_while(cond, body, label)
+	},
+	FOR <label:("(" <ident> ")")?> <var:ident> IN <iter:value> <body:instruction*> END => {
+		ControlFlow::new_for(iter, var, body, label)
+	},
+	LOOP <label:("(" <ident> ")")?> <body:instruction*> END => {
+		ControlFlow::new_loop(body, label)
+	},
+	BREAK <("(" <ident> ")")?> => ControlFlow::new_break(<>),
+	CONT <("(" <ident> ")")?> => ControlFlow::new_continue(<>),
+	RETURN <("(" <value> ")")?> => ControlFlow::new_return(<>),
+}
+
+assign_op: Instruction = {
+	Spanned<AssignOp<assign_opcode>> => Instruction::new_assign_op(<>.0.0, <>.0.1, <>.0.2, <>.1),
+}
+
+AssignOp<Code>: (String, Value, AssignOp) = {
+	<id:ident> <op:Code> <value:value> => (id, value, op),
+}
+
+assign_opcode: AssignOp = {
+	ADD_ASSIGN => AssignOp::Add,
+	SUB_ASSIGN => AssignOp::Sub,
+	MUL_ASSIGN => AssignOp::Mul,
+	DIV_ASSIGN => AssignOp::Div,
+	MOD_ASSIGN => AssignOp::Mod,
+	PWR_ASSIGN => AssignOp::Pwr,
+}
+
+assign: Instruction = {
+	<l:@L> VAR <id:ident> ASSIGN <value:value> <r:@R> => Instruction::new_assign(id, value, Span::new(l, r)),
+}
+
+value: Value = {
+	<lhs:value> AND <rhs:value6> => Operation::new_and(lhs, rhs).into(),
+	<lhs:value> OR <rhs:value6> => Operation::new_or(lhs, rhs).into(),
+	value6,
+}
+
+value6: Value = {
+	<lhs:value6> EQ <rhs:value5> => Operation::new_eq(lhs, rhs).into(),
+	<lhs:value6> NEQ <rhs:value5> => Operation::new_neq(lhs, rhs).into(),
+	<lhs:value6> LT <rhs:value5> => Operation::new_lt(lhs, rhs).into(),
+	<lhs:value6> LTE <rhs:value5> => Operation::new_lte(lhs, rhs).into(),
+	<lhs:value6> GT <rhs:value5> => Operation::new_gt(lhs, rhs).into(),
+	<lhs:value6> GTE <rhs:value5> => Operation::new_gte(lhs, rhs).into(),
+	value5,
+}
+
+value5: Value = {
+	<lhs:value5> ADD <rhs:value4> => Operation::new_add(lhs, rhs).into(),
+	<lhs:value5> SUB <rhs:value4> => Operation::new_sub(lhs, rhs).into(),
+	value4,
+}
+
+value4: Value = {
+	<lhs:value4> MUL <rhs:value3> => Operation::new_mul(lhs, rhs).into(),
+	<lhs:value4> DIV <rhs:value3> => Operation::new_div(lhs, rhs).into(),
+	<lhs:value4> MOD <rhs:value3> => Operation::new_mod(lhs, rhs).into(),
+	value3,
+}
+
+value3: Value = {
+	<value3> PWR <value2> => Operation::new_pwr(<>).into(),
+	value2,
+}
+
+value2: Value = {
+	NOT <value2> => Operation::new_not(<>).into(),
+	value1,
+}
+
+value1: Value = {
+	<value1> INCR => Operation::new_incr(<>).into(),
+	<value1> DECR => Operation::new_decr(<>).into(),
+	<target:value1> "@" <index:value0> => Operation::new_index(target, index).into(),
+	value0,
+}
+
+value0: Value = {
+	literal => <>.into(),
+	ident => Value::new_variable(<>),
+	function_call => <>,
+	"<" <value> ">",
+}
+
+function_call: Value = {
+	<id:ident> "(" <args:value*> ")" => Value::new_function_call(id, args),
+}
+
+ident: String = {
+	IDENT => <>.into(),
+}
+
+literal: Constant = {
+	STRING_RAW => Constant::new_string_raw(<>[1..<>.len() - 1].into()),
+	STRING_ESC => Constant::new_string_escaped(&<>[1..<>.len() - 1]),
+	STRING_ML => Constant::new_string_multiline(&<>[3..<>.len() - 3]),
+	INT => Constant::new_num(<>.parse().unwrap_or(i64::MAX)),
+	FLOAT => Constant::new_num(<>.parse().unwrap_or(f64::MAX)),
+	TRUE => Constant::new_bool(true),
+	FALSE => Constant::new_bool(false),
+	"[" <value*> "]" => Constant::new_array(<>),
+	"{" <(<value> ":" <value>)*> "}" => Constant::new_map(<>),
+}
+
+// type_def: Type = {
+// 	"[" <type_def> "]" => Type::Array(Box::new(<>)),
+// 	"{" <type_def> ":" <type_def> "}" => Type::Map(Box::new(<>), Box::new(<>)),
+// 	IDENT => Type::from_str(<>),
+// }
+
+Spanned<T>: (T, Span) = {
+	<l:@L> <value:T> <r:@R> => (value, Span::new(l, r))
+}

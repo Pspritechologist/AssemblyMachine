@@ -1,0 +1,20 @@
+[
+	Set(dst: 0, src: 0),
+	Set(dst: 1, src: 1),
+	Set(dst: 7, src: 2),
+	Set(dst: 8, src: 3),
+	Set(dst: 9, src: 4),
+
+	// Rand(dst: 2),
+	// Mod(dst: 2, a: 2, b: 0),
+	RandR(dst: 2, max: 0, min: 9),
+	// Rand(dst: 3),
+	// Mod(dst: 3, a: 3, b: 1),
+	RandR(dst: 3, max: 1, min: 9),
+	Add(dst: 2, a: 2, b: 3),
+	Print(src: 2),
+	
+	Sub(dst: 7, a: 7, b: 8),
+
+	TBJmp(tst: 7, off: 5),
+]

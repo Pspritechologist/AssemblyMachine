@@ -1,0 +1,39 @@
+### My lovely script :)
+
+func hello(greeting: String)
+	print(greeting)
+end
+
+func get_greeting(): String
+	return("Hello, World!")
+end
+
+hello(get_greeting())
+
+var greetings = [
+	get_greeting()
+	"Hello, Universe!"
+	"Hello, Multiverse!"
+]
+
+hello(greetings@0)
+hello(greetings@1)
+hello(greetings@2)
+
+for greeting in greetings
+	hello(greeting)
+end
+
+var i = 12
+
+loop(uwu)
+	var ii = 0
+
+	loop
+		ii += 1
+		if ii > i break end
+		if ii >= 50 break(uwu) end
+	end
+
+	i += 1
+end

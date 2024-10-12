@@ -1,0 +1,21 @@
+[package]
+name = "assembly-machine"
+version = "0.1.0"
+edition = "2021"
+
+[build-dependencies]
+lalrpop = "*"
+
+[dependencies]
+lalrpop-util = { version = "*", features = [ "lexer" ] }
+serde = { version = "*", features = [ "derive" ] }
+ron = "*"
+fastrand = "*"
+unescape = "*"
+
+[dev-dependencies]
+divan = "*"
+
+[[bench]]
+name = "bench"
+harness = false
