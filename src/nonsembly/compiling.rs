@@ -1,21 +1,14 @@
 use std::collections::HashMap;
 
-use assembly_machine::{objects::Object, FnPointer};
+use assembly_machine::{objects::Object, ByteCode, FnPointer, Operation as Op};
 
-use super::{Constant, ControlFlow, Instruction, Script, Value};
-
-#[derive(Debug, Clone)]
-pub struct ByteCode {
-	pub ops: Vec<Instruction>,
-	pub data: Vec<Object>,
-	pub start_index: usize,
-}
+use super::{Constant, ControlFlow, Instruction, Operation, Script, Value};
 
 #[derive(Debug, Clone)]
 pub struct NonsemblyCompiler {
-	ops: Vec<Instruction>,
+	ops: Vec<Op>,
 
-	func_ops: Vec<Instruction>,
+	func_ops: Vec<Op>,
 	func_arg_index: usize,
 	functions: HashMap<String, FuncData>,
 
@@ -46,7 +39,7 @@ impl NonsemblyCompiler {
 
 			},
 			Instruction::FunctionDef { name, args, body, .. } => {
-				self.generate_function(name, args.into_iter().map(|(s, ..)| s).collect(), body);
+				// self.generate_function(name, args.into_iter().map(|(s, ..)| s).collect(), body);
 			},
 			Instruction::Value { value, .. } => {
 
@@ -58,7 +51,81 @@ impl NonsemblyCompiler {
 	}
 
 	fn generate_function(&mut self, name: String, args: Vec<String>, body: Vec<Instruction>) {
-		let ret_i = self.functions.len();
+
+	}
+
+	fn generate_value_ops(&mut self, value: Value) -> Vec<Op> {
+		match value {
+			Value::Literal { value } => {
+				vec![]
+			},
+			Value::Variable { id } => {
+				vec![]
+			},
+			Value::Operation(op) => self.generate_operation_ops(*op),
+			Value::FunctionCall { name, args } => {
+				vec![]
+			},
+		}
+	}
+
+	fn generate_operation_ops(&mut self, op: Operation) -> Vec<Op> {
+		match op {
+			Operation::Add(a, b) => {
+				vec![]
+			},
+			Operation::Eq(a, b) => {
+				vec![]
+			},
+			Operation::Neq(a, b) => {
+				vec![]
+			},
+			Operation::Lt(a, b) => {
+				vec![]
+			},
+			Operation::Gt(a, b) => {
+				vec![]
+			},
+			Operation::Lte(a, b) => {
+				vec![]
+			},
+			Operation::Gte(a, b) => {
+				vec![]
+			},
+			Operation::Sub(a, b) => {
+				vec![]
+			},
+			Operation::Pwr(a, b) => {
+				vec![]
+			},
+			Operation::Mul(a, b) => {
+				vec![]
+			},
+			Operation::Div(a, b) => {
+				vec![]
+			},
+			Operation::Mod(a, b) => {
+				vec![]
+			},
+			Operation::Incr(n) => {
+				vec![]
+			},
+			Operation::Decr(n) => {
+				vec![]
+			},
+			Operation::And(a, b) => {
+				vec![]
+			},
+			Operation::Or(a, b) => {
+				vec![]
+			},
+			Operation::Not(b) => {
+				vec![]
+			},
+			Operation::Index(t, i) => {
+				vec![]
+			},
+		}
 	}
 
 	fn get_data_index(&mut self, data: Constant) -> usize {
@@ -90,4 +157,10 @@ struct FuncData {
 	arg_index: usize,
 	args: usize,
 	index: usize,
+}
+
+#[derive(Debug, Clone)]
+struct VarData {
+	index: usize,
+	
 }

@@ -18,115 +18,104 @@ fn main() {
 	// };
 	// let vm = assembly_machine::VM::<16>::new(&ops, vec![ 50.into(), 27.into(), 1000000.into(), 1.into(), 0.into() ]);
 
-	let print = |args: Vec<&Object>| {
-		if let Some(txt) = args.first() {
-			black_box(indent_lines(&txt.to_string()));
-		};
+	// let print = |args: Vec<Object>| {
+	// 	if let Some(txt) = args.first() {
+	// 		black_box(
+	// 		// println!("{}",
+	// 			indent_lines(&txt.to_string())
+	// 		);
+	// 	};
 
-		return Object::Null;
-	};
-
-	let random = |args: Vec<&Object>| {
-		if args.len() < 2 {
-			return Object::Null;
-		}
-
-		let min = args[0].as_num().as_i64();
-		let max = args[1].as_num().as_i64();
-
-		return fastrand::i64(min..max).into();
-	};
-
-	use assembly_machine::Operations::*;
-
-	// Reg 00: Print
-	// Reg 01: Print arg
-	// Reg 02: Random
-	// Reg 03: Random arg min
-	// Reg 04: Random arg max
-	// Reg 05: Random result
-	// Reg 06: 0
-	// Reg 07: 1
-	// Reg 08: Counter
-	// Reg 09: Counter test
-	let ops = vec![
-		// Setup constants and such.
-		Set { dst: 0, src: 0 },
-		Set { dst: 2, src: 1 },
-		Set { dst: 6, src: 2 },
-		Set { dst: 7, src: 3 },
-		Set { dst: 8, src: 4 },
-
-		// Add three numbers function.
-		// Three args starting at 11.
-		// Return offset at 10.
-		
-
-		// Timer increment.
-		Sub { dst: 8, a: 8, b: 7 },
-		Le { dst: 9, a: 8, b: 6 },
-		TFJmp { tst: 9, off: 999 },
-
-		// Generate random number.
-		Copy { dst: 3, src: 6 },
-		Copy { dst: 4, src: 8 },
-		Call { dst: 5, src: 2, arg: 2 },
-		Void { dst: 3 },
-		Void { dst: 4 },
-
-		// Print random number.
-		Copy { dst: 1, src: 5 },
-		Call { dst: 10, src: 0, arg: 1 },
-		Void { dst: 1 },
-
-		// Jump back to timer increment.
-		BwJmp { off: 11 },
-	];
-
-	let data = vec![
-		Object::Fn(print),
-		Object::Fn(random),
-		Object::Num(0.into()),
-		Object::Num(1.into()),
-		Object::Num(100_000.into()),
-	];
-
-	let vm = assembly_machine::VM::<128>::new(&ops, data);
-
-	if vm.run().is_ok() {
-		println!(":)");
-	}
-
-	// let script = match nonsembly::Parser::new().parse(include_str!("script.ass")) {
-	// 	Ok(s) => s,
-	// 	Err(e) => return println!("{e}"),
+	// 	return Object::Null;
 	// };
+
+	// let random = |args: Vec<Object>| {
+	// 	if args.len() < 2 {
+	// 		return Object::Null;
+	// 	}
+
+	// 	let min = args[0].as_num().as_i64();
+	// 	let max = args[1].as_num().as_i64();
+
+	// 	return fastrand::i64(min..max).into();
+	// };
+
+	// use assembly_machine::Operation::*;
+
+	// // Con 00: Print
+	// // Con 01: Random
+	// // Con 02: 0
+	// // Con 03: 1
+	// // Con 04: 100_000
+	// let ops = vec![
+	// 	Push { src: 4 },
+
+	// 	// Timer increment.
+	// 	Push { src: 3 },
+	// 	Swap { },
+	// 	Sub { },
+	// 	Copy { cnt: 1 },
+	// 	Push { src: 2 },
+	// 	Ge { },
+	// 	TFJmp { off: 999 },
+
+	// 	// Generate random number.
+	// 	Copy { cnt: 1 },
+	// 	Push { src: 2 },
+	// 	Call { src: 1 },
+
+	// 	// Print random number.
+	// 	Call { src: 0 },
+	// 	Void { cnt: 1 },
+
+	// 	// Jump back to timer increment.
+	// 	BwJmp { off: 12 },
+	// ];
+
+	// let data = vec![
+	// 	Object::Fn((print, 1)),
+	// 	Object::Fn((random, 2)),
+	// 	Object::Num(0.into()),
+	// 	Object::Num(1.into()),
+	// 	Object::Num(100_000.into()),
+	// ];
+
+	// let vm = assembly_machine::VM::new_with_cap(&ops, &data, 0);
+
+	// if vm.run().is_ok() {
+	// 	println!(":)");
+	// }
+
+	let script = match nonsembly::Parser::new().parse(include_str!("script.ass")) {
+		Ok(s) => s,
+		Err(e) => return println!("{e}"),
+	};
 
 	// for instr in script.iter() {
 	// 	println!("{}\n", format_instr(instr))
 	// 	// black_box(format_instr(instr));
 	// }
 
-	// let result = nonsembly::NonsemblyValidator::new(&script).validate();
-	// match result {
-	// 	Err((errors, warns)) => {
-	// 		for w in warns {
-	// 			println!("{w:?}\n")
-	// 		}
+	let result = nonsembly::NonsemblyValidator::new(&script).validate();
+	match result {
+		Err((errors, warns)) => {
+			for w in warns {
+				println!("{w:?}\n")
+			}
 
-	// 		for e in errors {
-	// 			println!("{e:?}\n")
-	// 		}
-	// 	},
-	// 	Ok(warns) if warns.is_empty() => println!("No warnings :D"),
-	// 	Ok(warns) => {
-	// 		for w in warns {
-	// 			println!("{w:?}\n")
-	// 		}
+			for e in errors {
+				println!("{e:?}\n")
+			}
+		},
+		Ok(warns) if warns.is_empty() => println!("No warnings :D"),
+		Ok(warns) => {
+			for w in warns {
+				println!("{w:?}\n")
+			}
 
-	// 		println!("No errors :)")
-	// 	},
-	// }
+			println!("No errors :)")
+		},
+	}
 }
 
 fn format_instr(instr: &Instruction) -> String {
@@ -319,5 +308,9 @@ fn format_control_flow(cf: &ControlFlow) -> String {
 }
 
 fn indent_lines(s: &str) -> String {
-	s.lines().map(|l| "\t".to_string() + l).collect::<Vec<String>>().join("\n")
+	let mut result = String::new();
+	for l in s.lines() {
+		result += &format!("\t{l}\n");
+	}
+	result
 }

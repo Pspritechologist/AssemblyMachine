@@ -8,6 +8,14 @@ func get_greeting(): String
 	return("Hello, World!")
 end
 
+func awa()
+	func hello()
+		print("Hello, World!")
+	end
+
+	hello()
+end
+
 hello(get_greeting())
 
 var greetings = [

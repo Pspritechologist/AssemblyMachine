@@ -1,4 +1,6 @@
-use std::sync::Arc;
+use std::borrow::Borrow;
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::collections::HashMap as Map;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -6,37 +8,45 @@ pub enum Object {
 	Num(Num),
 	String(String),
 	Bool(bool),
-	Array(Arc<Vec<Object>>),
-	Map(Arc<Map<String, Object>>),
-	Fn(crate::FnPointer),
+	Array(Rc<RefCell<Vec<Object>>>),
+	Map(Rc<RefCell<Map<String, Object>>>),
+	Fn((crate::FnPointer, usize)),
 	Null,
 }
 
 impl Object {
-	pub fn add(&self, other: &Self) -> Self {
+	pub fn add(self, other: Self) -> Self {
 		match (self, other) {
-			(Object::Num(a), Object::Num(b)) => Object::Num(*a + *b),
+			(Object::Num(a), Object::Num(b)) => Object::Num(a + b),
 			(Object::String(a), Object::String(b)) => Object::String(format!("{}{}", a, b)),
-			(Object::Bool(a), Object::Bool(b)) => Object::Bool(*a || *b),
+			(Object::Bool(a), Object::Bool(b)) => Object::Bool(a || b),
 			(Object::Array(a), Object::Array(b)) => {
-				let mut array = (**a).clone();
-				array.extend_from_slice(b);
-				Object::Array(Arc::new(array))
+				a.borrow_mut().extend_from_slice(&(*b).borrow());
+				Object::Array(a)
 			},
 			(Object::Map(a), Object::Map(b)) => {
-				let mut map = (**a).clone();
-				map.extend(b.iter().map(|(k, v)| (k.clone(), v.clone())));
-				Object::Map(Arc::new(map))
+				let mut a_mut = a.borrow_mut();
+				for (k, b) in (*b).borrow().iter() {
+					a_mut.insert(k.clone(), b.clone());
+				}
+				drop(a_mut);
+				Object::Map(a)
 			},
-			(non_null, Object::Null) | (Object::Null, non_null) => non_null.clone(),
-			_ => panic!("Types not supported for addition: {self:?} and {other:?}"),
+			(non_null, Object::Null) | (Object::Null, non_null) => non_null,
+			#[cfg(debug_assertions)]
+			(a, b) => panic!("Types not supported for addition: {a:?} and {b:?}"),
+			#[cfg(not(debug_assertions))]
+			_ => unsafe { std::hint::unreachable_unchecked() },
 		}
 	}
 
 	pub fn as_num(&self) -> Num {
 		match self {
 			Object::Num(num) => *num,
+			#[cfg(debug_assertions)]
 			_ => panic!("Expected a number, got {:?}", self),
+			#[cfg(not(debug_assertions))]
+			_ => unsafe { std::hint::unreachable_unchecked() },
 		}
 	}
 
@@ -45,17 +55,20 @@ impl Object {
 			Object::Bool(boolean) => *boolean,
 			Object::Num(num) => *num != Num::Int(0),
 			Object::String(string) => !string.is_empty(),
-			Object::Array(array) => !array.is_empty(),
-			Object::Map(map) => !map.is_empty(),
+			Object::Array(array) => !(**array).borrow().is_empty(),
+			Object::Map(map) => !(**map).borrow().is_empty(),
 			Object::Null => false,
 			Object::Fn(_) => false,
 		}
 	}
 
-	pub fn as_fn_pointer(&self) -> crate::FnPointer {
+	pub fn as_fn_pointer(&self) -> (crate::FnPointer, usize) {
 		match self {
 			Object::Fn(func) => *func,
+			#[cfg(debug_assertions)]
 			_ => panic!("Expected a function, got {:?}", self),
+			#[cfg(not(debug_assertions))]
+			_ => unsafe { std::hint::unreachable_unchecked() },
 		}
 	}
 }
@@ -81,9 +94,9 @@ impl PartialOrd for Object {
 		match (self, other) {
 			(Object::Num(a), Object::Num(b)) => a.partial_cmp(b),
 			(Object::String(a), Object::String(b)) => a.partial_cmp(b),
-			(Object::Bool(a), Object::Bool(b)) => a.partial_cmp(b),
+			(Object::Bool(a), Object::Bool(b)) => a.borrow().partial_cmp(b.borrow()),
 			(Object::Array(a), Object::Array(b)) => a.partial_cmp(b),
-			(Object::Map(a), Object::Map(b)) => a.len().partial_cmp(&b.len()),
+			(Object::Map(a), Object::Map(b)) => (**a).borrow().len().partial_cmp(&(**b).borrow().len()),
 			(Object::Null, Object::Null) => Some(std::cmp::Ordering::Equal),
 			(Object::Null, _) => Some(std::cmp::Ordering::Less),
 			(_, Object::Null) => Some(std::cmp::Ordering::Greater),
@@ -129,8 +142,8 @@ impl<'de> serde::Deserialize<'de> for Object {
 		Ok(match object {
 			ObjectEnum::Num(num) => Object::Num(num),
 			ObjectEnum::String(string) => Object::String(string),
-			ObjectEnum::Array(array) => Object::Array(Arc::new(array)),
-			ObjectEnum::Map(map) => Object::Map(Arc::new(map)),
+			ObjectEnum::Array(array) => Object::Array(Rc::new(RefCell::new(array))),
+			ObjectEnum::Map(map) => Object::Map(Rc::new(RefCell::new(map))),
 			ObjectEnum::Null => Object::Null,
 		})
 	}
@@ -143,6 +156,7 @@ impl std::fmt::Display for Object {
 			Object::String(string) => write!(f, "{}", string),
 			Object::Bool(boolean) => write!(f, "{}", boolean),
 			Object::Array(array) => {
+				let array = (**array).borrow();
 				write!(f, "[ ")?;
 				for item in array[..array.len().saturating_sub(1)].iter() {
 					write!(f, "{}, ", item)?;
@@ -153,6 +167,7 @@ impl std::fmt::Display for Object {
 				write!(f, "]")
 			},
 			Object::Map(map) => {
+				let map = (**map).borrow();
 				let mut iter = map.iter();
 				write!(f, "{{ ")?;
 				for _ in [0..iter.len().saturating_sub(1)] {
@@ -202,18 +217,30 @@ impl From<bool> for Object {
 
 impl From<Vec<Object>> for Object {
 	fn from(array: Vec<Object>) -> Self {
-		Object::Array(Arc::new(array))
+		Object::Array(Rc::new(RefCell::new(array)))
+	}
+}
+
+impl From<Rc<RefCell<Vec<Object>>>> for Object {
+	fn from(array: Rc<RefCell<Vec<Object>>>) -> Self {
+		Object::Array(array)
 	}
 }
 
 impl From<Map<String, Object>> for Object {
 	fn from(map: Map<String, Object>) -> Self {
-		Object::Map(Arc::new(map))
+		Object::Map(Rc::new(RefCell::new(map)))
 	}
 }
 
-impl From<crate::FnPointer> for Object {
-	fn from(func: crate::FnPointer) -> Self {
+impl From<Rc<RefCell<Map<String, Object>>>> for Object {
+	fn from(map: Rc<RefCell<Map<String, Object>>>) -> Self {
+		Object::Map(map)
+	}
+}
+
+impl From<(crate::FnPointer, usize)> for Object {
+	fn from(func: (crate::FnPointer, usize)) -> Self {
 		Object::Fn(func)
 	}
 }

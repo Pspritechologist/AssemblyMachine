@@ -159,7 +159,7 @@ value2: Value = {
 value1: Value = {
 	<value1> INCR => Operation::new_incr(<>).into(),
 	<value1> DECR => Operation::new_decr(<>).into(),
-	<target:value1> "@" <index:value0> => Operation::new_index(target, index).into(),
+	<target:value1> "@" "[" <index:value> "]" => Operation::new_index(target, index).into(),
 	value0,
 }
 

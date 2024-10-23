@@ -1,15 +1,14 @@
 pub mod ast;
 pub mod span;
-mod compiling;
+pub mod compiling;
 
-use std::ops::Deref;
+lalrpop_mod!(grammar, "/nonsembly/grammar.rs");
 
 pub use grammar::scriptParser as Parser;
 
-// lalrpop_mod!(grammar);
-mod grammar;
-// use lalrpop_util::lalrpop_mod;
+use lalrpop_util::lalrpop_mod;
 
+use std::ops::Deref;
 use ast::*;
 use span::Span;
 
