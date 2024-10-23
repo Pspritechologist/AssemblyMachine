@@ -1,6 +1,4 @@
-use std::{env::current_dir, hint::black_box};
-
-use assembly_machine::{objects::{Num, Object}, FunctionData};
+use assembly_machine::objects::Num;
 use nonsembly::ast::instructions::{*, control_flow::*, value::*};
 
 fn main() {

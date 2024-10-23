@@ -1,8 +1,6 @@
-use std::ops::{Deref, DerefMut};
-
-use assembly_machine_macros::SpanData;
-
 use super::*;
+use assembly_machine_macros::SpanData;
+use std::ops::{Deref, DerefMut};
 
 pub trait SpanData {
 	fn get_span(&self) -> Span;
@@ -100,6 +98,7 @@ impl std::fmt::Display for Ident {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AssignOperator {
+	// Set,
 	Add,
 	Sub,
 	Mul,

@@ -1,6 +1,5 @@
 use assembly_machine::objects::Num;
 use span::Span;
-use instructions::*;
 use components::*;
 
 pub mod instructions;

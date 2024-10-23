@@ -339,13 +339,3 @@ impl<'vm> VM<'vm> {
 	// pub fn get(&self, index: u8) -> &Object {
 	// }
 }
-
-pub trait UnwrapUnsafeSafe<T> {
-	fn unwrap_safe(self) -> T;
-}
-
-impl<T> UnwrapUnsafeSafe<T> for Result<T, !> {
-	fn unwrap_safe(self) -> T {
-		unsafe { self.unwrap_unchecked() }
-	}
-}

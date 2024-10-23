@@ -1,6 +1,5 @@
-use assembly_machine_macros::SpanData;
-
 use super::*;
+use assembly_machine_macros::SpanData;
 
 #[derive(Debug, Clone, PartialEq, Eq, SpanData)]
 #[enum_from]
