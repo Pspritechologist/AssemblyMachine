@@ -5,7 +5,7 @@ mod grammar {
 	use lalrpop_util::lalrpop_mod;
 	use super::ast::{InstrBlock, instructions::{*, value::*, control_flow::*}, components::*, span::*};
 
-	lalrpop_mod!(pub(super) grammar, "/nonsembly/grammar.rs");
+	lalrpop_mod!(pub(super) grammar);
 }
 
 pub use grammar::grammar::scriptParser as Parser;

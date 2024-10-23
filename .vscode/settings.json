@@ -1,0 +1,14 @@
+{
+	"cSpell.words": [
+		"fastrand"
+	],
+    "material-icon-theme.files.associations": {
+        "lalrpop": "Verilog",
+    },
+    "material-icon-theme.languages.associations": {
+        "lalrpop": "Verilog",
+    },
+    "cSpell.words": [
+        "lalrpop",
+    ],
+}

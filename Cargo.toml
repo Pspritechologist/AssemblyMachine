@@ -1,22 +1,13 @@
-[package]
-name = "assembly-machine"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+resolver = "2"
+members = [ "assembly_machine", "nonsembly", ]
+default-members = [ "assembly_machine", ]
 
-[build-dependencies]
-lalrpop = "*"
+[profile.release]
+lto = true
+strip = true
 
-[dependencies]
-assembly_machine_macros = { path = "../assembly_machine_macros" }
-lalrpop-util = { version = "*", features = [ "lexer" ] }
-serde = { version = "*", features = [ "derive" ] }
-ron = "*"
-fastrand = "*"
-unescape = "*"
-
-[dev-dependencies]
-divan = "*"
-
-[[bench]]
-name = "bench"
-harness = false
+[profile.profiling]
+inherits = "release"
+debug = true
+strip = false

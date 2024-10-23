@@ -1,0 +1,14 @@
+[package]
+name = "nonsembly"
+version = "0.1.0"
+edition = "2021"
+
+[build-dependencies]
+lalrpop = "*"
+
+[dependencies]
+assembly_machine = { path = "../assembly_machine" }
+assembly_machine_macros = { path = "../assembly_machine_macros" }
+lalrpop-util = { version = "*", features = [ "lexer" ] }
+fastrand = "*"
+unescape = "*"

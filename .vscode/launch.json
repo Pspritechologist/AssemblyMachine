@@ -1,0 +1,139 @@
+{
+	// Use IntelliSense to learn about possible attributes.
+	// Hover to view descriptions of existing attributes.
+	// For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug unit tests in library 'assembly_machine'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--lib",
+					"--package=assembly_machine"
+				],
+				"filter": {
+					"name": "assembly_machine",
+					"kind": "lib"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug executable 'assembly_machine'",
+			"cargo": {
+				"args": [
+					"build",
+					"--bin=assembly_machine",
+					"--package=assembly_machine"
+				],
+				"filter": {
+					"name": "assembly_machine",
+					"kind": "bin"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug unit tests in executable 'assembly_machine'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--bin=assembly_machine",
+					"--package=assembly_machine"
+				],
+				"filter": {
+					"name": "assembly_machine",
+					"kind": "bin"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug benchmark 'bench'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--bench=bench",
+					"--package=assembly_machine"
+				],
+				"filter": {
+					"name": "bench",
+					"kind": "bench"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug unit tests in library 'nonsembly'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--lib",
+					"--package=nonsembly"
+				],
+				"filter": {
+					"name": "nonsembly",
+					"kind": "lib"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug executable 'nonsembly'",
+			"cargo": {
+				"args": [
+					"build",
+					"--bin=nonsembly",
+					"--package=nonsembly"
+				],
+				"filter": {
+					"name": "nonsembly",
+					"kind": "bin"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug unit tests in executable 'nonsembly'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--bin=nonsembly",
+					"--package=nonsembly"
+				],
+				"filter": {
+					"name": "nonsembly",
+					"kind": "bin"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		}
+	]
+}
