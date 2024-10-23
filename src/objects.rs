@@ -1,25 +1,27 @@
-use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::collections::HashMap as Map;
+use std::collections::HashMap as IMap;
+
+pub type Array = Rc<RefCell<Vec<Object>>>;
+pub type Map = Rc<RefCell<IMap<String, Object>>>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Object {
 	Num(Num),
 	String(String),
 	Bool(bool),
-	Array(Rc<RefCell<Vec<Object>>>),
-	Map(Rc<RefCell<Map<String, Object>>>),
-	Fn((crate::FnPointer, usize)),
+	Array(Array),
+	Map(Map),
+	Fn((crate::FnPointer, u8)),
 	Null,
 }
 
 impl Object {
-	pub fn add(self, other: Self) -> Self {
+	pub fn add(self, other: &Self) -> Self {
 		match (self, other) {
-			(Object::Num(a), Object::Num(b)) => Object::Num(a + b),
+			(Object::Num(a), Object::Num(b)) => Object::Num(a + *b),
 			(Object::String(a), Object::String(b)) => Object::String(format!("{}{}", a, b)),
-			(Object::Bool(a), Object::Bool(b)) => Object::Bool(a || b),
+			(Object::Bool(a), Object::Bool(b)) => Object::Bool(a || *b),
 			(Object::Array(a), Object::Array(b)) => {
 				a.borrow_mut().extend_from_slice(&(*b).borrow());
 				Object::Array(a)
@@ -32,7 +34,8 @@ impl Object {
 				drop(a_mut);
 				Object::Map(a)
 			},
-			(non_null, Object::Null) | (Object::Null, non_null) => non_null,
+			(non_null, Object::Null) => non_null,
+			(Object::Null, non_null) => non_null.clone(),
 			#[cfg(debug_assertions)]
 			(a, b) => panic!("Types not supported for addition: {a:?} and {b:?}"),
 			#[cfg(not(debug_assertions))]
@@ -50,6 +53,26 @@ impl Object {
 		}
 	}
 
+	pub fn as_array(&self) -> Array {
+		match self {
+			Object::Array(array) => Rc::clone(array),
+			#[cfg(debug_assertions)]
+			_ => panic!("Expected an array, got {:?}", self),
+			#[cfg(not(debug_assertions))]
+			_ => unsafe { std::hint::unreachable_unchecked() },
+		}
+	}
+
+	pub fn as_map(&self) -> Map {
+		match self {
+			Object::Map(map) => Rc::clone(map),
+			#[cfg(debug_assertions)]
+			_ => panic!("Expected a map, got {:?}", self),
+			#[cfg(not(debug_assertions))]
+			_ => unsafe { std::hint::unreachable_unchecked() },
+		}
+	}
+
 	pub fn as_bool(&self) -> bool {
 		match self {
 			Object::Bool(boolean) => *boolean,
@@ -62,7 +85,7 @@ impl Object {
 		}
 	}
 
-	pub fn as_fn_pointer(&self) -> (crate::FnPointer, usize) {
+	pub fn as_fn_pointer(&self) -> (crate::FnPointer, u8) {
 		match self {
 			Object::Fn(func) => *func,
 			#[cfg(debug_assertions)]
@@ -94,7 +117,7 @@ impl PartialOrd for Object {
 		match (self, other) {
 			(Object::Num(a), Object::Num(b)) => a.partial_cmp(b),
 			(Object::String(a), Object::String(b)) => a.partial_cmp(b),
-			(Object::Bool(a), Object::Bool(b)) => a.borrow().partial_cmp(b.borrow()),
+			(Object::Bool(a), Object::Bool(b)) => a.partial_cmp(b),
 			(Object::Array(a), Object::Array(b)) => a.partial_cmp(b),
 			(Object::Map(a), Object::Map(b)) => (**a).borrow().len().partial_cmp(&(**b).borrow().len()),
 			(Object::Null, Object::Null) => Some(std::cmp::Ordering::Equal),
@@ -133,7 +156,7 @@ impl<'de> serde::Deserialize<'de> for Object {
 			Num(Num),
 			String(String),
 			Array(Vec<Object>),
-			Map(Map<String, Object>),
+			Map(IMap<String, Object>),
 			Null,
 		}
 
@@ -221,26 +244,26 @@ impl From<Vec<Object>> for Object {
 	}
 }
 
-impl From<Rc<RefCell<Vec<Object>>>> for Object {
-	fn from(array: Rc<RefCell<Vec<Object>>>) -> Self {
+impl From<Array> for Object {
+	fn from(array: Array) -> Self {
 		Object::Array(array)
 	}
 }
 
-impl From<Map<String, Object>> for Object {
-	fn from(map: Map<String, Object>) -> Self {
+impl From<IMap<String, Object>> for Object {
+	fn from(map: IMap<String, Object>) -> Self {
 		Object::Map(Rc::new(RefCell::new(map)))
 	}
 }
 
-impl From<Rc<RefCell<Map<String, Object>>>> for Object {
-	fn from(map: Rc<RefCell<Map<String, Object>>>) -> Self {
+impl From<Map> for Object {
+	fn from(map: Map) -> Self {
 		Object::Map(map)
 	}
 }
 
-impl From<(crate::FnPointer, usize)> for Object {
-	fn from(func: (crate::FnPointer, usize)) -> Self {
+impl From<(crate::FnPointer, u8)> for Object {
+	fn from(func: (crate::FnPointer, u8)) -> Self {
 		Object::Fn(func)
 	}
 }
@@ -290,8 +313,8 @@ impl Default for Num {
 impl std::fmt::Display for Num {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		match self {
-			Num::Int(value) => write!(f, "{}", value),
-			Num::Float(value) => write!(f, "{}", value),
+			Num::Int(value) => write!(f, "{value}"),
+			Num::Float(value) => write!(f, "{value}"),
 		}
 	}
 }

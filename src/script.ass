@@ -24,9 +24,9 @@ var greetings = [
 	"Hello, Multiverse!"
 ]
 
-hello(greetings@0)
-hello(greetings@1)
-hello(greetings@2)
+hello(greetings@[0])
+hello(greetings@[1])
+hello(greetings@[2])
 
 for greeting in greetings
 	hello(greeting)
@@ -39,6 +39,12 @@ loop(uwu)
 
 	loop
 		ii += 1
+		if ii % 10 == 0 
+			print("This number is cool~")
+		else
+			print("This number is lame.")
+		end
+		
 		if ii > i break end
 		if ii >= 50 break(uwu) end
 	end

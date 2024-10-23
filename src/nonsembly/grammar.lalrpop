@@ -19,6 +19,8 @@ match {
 	r"(?i)loop" => LOOP,
 	r"(?i)end" => END,
 	r"(?i)in" => IN,
+	r"(?i)True" => TRUE,
+	r"(?i)False" => FALSE,
 	// Operators
 	"=" => ASSIGN,
 	"+=" => ADD_ASSIGN,
@@ -44,10 +46,8 @@ match {
 	"&&" => AND,
 	"||" => OR,
 	"!" => NOT,
-	r"(?i)True" => TRUE,
-	r"(?i)False" => FALSE,
 } else {
-	r"[a-zA-Z][a-zA-Z_0-9\[\]{}]*" => IDENT,
+	r"[a-zA-Z][a-zA-Z_0-9]*" => IDENT,
 	// Literals
 	r"-?\d+" => INT,
 	r"-?(?:\d+\.\d*|\d*\.\d+)" => FLOAT,
@@ -57,138 +57,153 @@ match {
 	_
 }
 
-pub script: Script = <instruction*> => <>;
+pub script: InstrBlock = <instruction*> => <>;
 
 instruction: Instruction = {
-	Spanned<value> => Instruction::new_value(<>.0, <>.1),
-	assign,
-	assign_op,
-	function_def,
-	Spanned<control_flow> => Instruction::new_control_flow(<>.0, <>.1),
+	value => <>.into(),
+	assign => <>.into(),
+	assign_op => <>.into(),
+	function_def => <>.into(),
+	control_flow => <>.into(),
 }
 
-function_def: Instruction = {
-	<l:@L> FUNC <id:ident> "(" <args:Spanned<(<ident> ":" <ident>)>*> ")" <ret_type:(":" <ident>)?> <body:instruction*> END <r:@R> =>
-		Instruction::new_function_def(
+function_def: FunctionDef = {
+	<l:@L> FUNC <id:ident> "(" <args:(<ident> ":" <type_def>)*> ")" <ret_type:(":" <type_def>)?> <body:instruction*> END <r:@R> =>
+		FunctionDef::new(
 			id,
-			ret_type.map(|ty| ty.parse().unwrap_safe()).unwrap_or_default(),
-			args.into_iter().map(|((id, ty), span)| (id, ty.parse().unwrap_safe(), span)).collect(),
+			ret_type.unwrap_or(Spanned::new(TypeDef::default(), Span::INVALID)),
+			args,
 			body,
 			Span::new(l, r),
 		),
 }
 
 control_flow: ControlFlow = {
-	IF <condition:value> <if_body:instruction*> <else_body:(ELSE <instruction*>)?> END => {
-		ControlFlow::new_if(condition, if_body, else_body)
+	<l:@L> IF <condition:value> <if_body:Spanned<instruction*>> <else_body:(ELSE <Spanned<instruction*>>)?> END <r:@R> => {
+		IfBlock::new(condition, if_body.into(), else_body.map(Into::into), Span::new(l, r)).into()
 	},
-	WHILE <label:("(" <ident> ")")?> <cond:value> <body:instruction*> END => {
-		ControlFlow::new_while(cond, body, label)
+	<l:@L> WHILE <label:Parens<ident>?> <cond:value> <body:instruction*> END <r:@R> => {
+		WhileBlock::new(cond, body, label, Span::new(l, r)).into()
 	},
-	FOR <label:("(" <ident> ")")?> <var:ident> IN <iter:value> <body:instruction*> END => {
-		ControlFlow::new_for(iter, var, body, label)
+	<l:@L> FOR <label:Parens<ident>?> <var:ident> IN <iter:value> <body:instruction*> END <r:@R> => {
+		ForBlock::new(iter, var, body, label, Span::new(l, r)).into()
 	},
-	LOOP <label:("(" <ident> ")")?> <body:instruction*> END => {
-		ControlFlow::new_loop(body, label)
+	<l:@L> LOOP <label:Parens<ident>?> <body:instruction*> END <r:@R> => {
+		LoopBlock::new(body, label, Span::new(l, r)).into()
 	},
-	BREAK <("(" <ident> ")")?> => ControlFlow::new_break(<>),
-	CONT <("(" <ident> ")")?> => ControlFlow::new_continue(<>),
-	RETURN <("(" <value> ")")?> => ControlFlow::new_return(<>),
+	<key:Spanned<BREAK>> <parens:Parens<ident>?> => Break::new(parens, key.1).into(),
+	<key:Spanned<CONT>> <parens:Parens<ident>?> => Continue::new(parens, key.1).into(),
+	<key:Spanned<RETURN>> <parens:Parens<value>?> => Return::new(parens, key.1).into(),
 }
 
-assign_op: Instruction = {
-	Spanned<AssignOp<assign_opcode>> => Instruction::new_assign_op(<>.0.0, <>.0.1, <>.0.2, <>.1),
+assign_op: AssignOp = {
+	AssignOp<assign_opcode> => AssignOp::new(<>.0, <>.1, <>.2),
 }
 
-AssignOp<Code>: (String, Value, AssignOp) = {
+AssignOp<Code>: (Ident, Value, AssignOperator) = {
 	<id:ident> <op:Code> <value:value> => (id, value, op),
 }
 
-assign_opcode: AssignOp = {
-	ADD_ASSIGN => AssignOp::Add,
-	SUB_ASSIGN => AssignOp::Sub,
-	MUL_ASSIGN => AssignOp::Mul,
-	DIV_ASSIGN => AssignOp::Div,
-	MOD_ASSIGN => AssignOp::Mod,
-	PWR_ASSIGN => AssignOp::Pwr,
+assign_opcode: AssignOperator = {
+	ADD_ASSIGN => AssignOperator::Add,
+	SUB_ASSIGN => AssignOperator::Sub,
+	MUL_ASSIGN => AssignOperator::Mul,
+	DIV_ASSIGN => AssignOperator::Div,
+	MOD_ASSIGN => AssignOperator::Mod,
+	PWR_ASSIGN => AssignOperator::Pwr,
 }
 
-assign: Instruction = {
-	<l:@L> VAR <id:ident> ASSIGN <value:value> <r:@R> => Instruction::new_assign(id, value, Span::new(l, r)),
+assign: Assignment = {
+	VAR <id:ident> ASSIGN <value:value> => Assignment::new(id, value),
 }
 
 value: Value = {
-	<lhs:value> AND <rhs:value6> => Operation::new_and(lhs, rhs).into(),
-	<lhs:value> OR <rhs:value6> => Operation::new_or(lhs, rhs).into(),
-	value6,
+	<l:@L> <lhs:value> AND <rhs:value6> <r:@R> => Spanned::new(Operation::new_and(lhs, rhs), Span::new(l, r)).into(),
+	<l:@L> <lhs:value> OR <rhs:value6> <r:@R> => Spanned::new(Operation::new_or(lhs, rhs), Span::new(l, r)).into(),
+	value6 => <>.into(),
 }
 
 value6: Value = {
-	<lhs:value6> EQ <rhs:value5> => Operation::new_eq(lhs, rhs).into(),
-	<lhs:value6> NEQ <rhs:value5> => Operation::new_neq(lhs, rhs).into(),
-	<lhs:value6> LT <rhs:value5> => Operation::new_lt(lhs, rhs).into(),
-	<lhs:value6> LTE <rhs:value5> => Operation::new_lte(lhs, rhs).into(),
-	<lhs:value6> GT <rhs:value5> => Operation::new_gt(lhs, rhs).into(),
-	<lhs:value6> GTE <rhs:value5> => Operation::new_gte(lhs, rhs).into(),
+	<l:@L> <lhs:value6> EQ <rhs:value5> <r:@R> => Spanned::new(Operation::new_eq(lhs, rhs), Span::new(l, r)).into(),
+	<l:@L> <lhs:value6> NEQ <rhs:value5> <r:@R> => Spanned::new(Operation::new_neq(lhs, rhs), Span::new(l, r)).into(),
+	<l:@L> <lhs:value6> LT <rhs:value5> <r:@R> => Spanned::new(Operation::new_lt(lhs, rhs), Span::new(l, r)).into(),
+	<l:@L> <lhs:value6> LTE <rhs:value5> <r:@R> => Spanned::new(Operation::new_lte(lhs, rhs), Span::new(l, r)).into(),
+	<l:@L> <lhs:value6> GT <rhs:value5> <r:@R> => Spanned::new(Operation::new_gt(lhs, rhs), Span::new(l, r)).into(),
+	<l:@L> <lhs:value6> GTE <rhs:value5> <r:@R> => Spanned::new(Operation::new_gte(lhs, rhs), Span::new(l, r)).into(),
 	value5,
 }
 
 value5: Value = {
-	<lhs:value5> ADD <rhs:value4> => Operation::new_add(lhs, rhs).into(),
-	<lhs:value5> SUB <rhs:value4> => Operation::new_sub(lhs, rhs).into(),
+	<l:@L> <lhs:value5> ADD <rhs:value4> <r:@R> => Spanned::new(Operation::new_add(lhs, rhs), Span::new(l, r)).into(),
+	<l:@L> <lhs:value5> SUB <rhs:value4> <r:@R> => Spanned::new(Operation::new_sub(lhs, rhs), Span::new(l, r)).into(),
 	value4,
 }
 
 value4: Value = {
-	<lhs:value4> MUL <rhs:value3> => Operation::new_mul(lhs, rhs).into(),
-	<lhs:value4> DIV <rhs:value3> => Operation::new_div(lhs, rhs).into(),
-	<lhs:value4> MOD <rhs:value3> => Operation::new_mod(lhs, rhs).into(),
+	<l:@L> <lhs:value4> MUL <rhs:value3> <r:@R> => Spanned::new(Operation::new_mul(lhs, rhs), Span::new(l, r)).into(),
+	<l:@L> <lhs:value4> DIV <rhs:value3> <r:@R> => Spanned::new(Operation::new_div(lhs, rhs), Span::new(l, r)).into(),
+	<l:@L> <lhs:value4> MOD <rhs:value3> <r:@R> => Spanned::new(Operation::new_mod(lhs, rhs), Span::new(l, r)).into(),
 	value3,
 }
 
 value3: Value = {
-	<value3> PWR <value2> => Operation::new_pwr(<>).into(),
+	<l:@L> <lhs:value3> PWR <rhs:value2> <r:@R> => Spanned::new(Operation::new_pwr(lhs, rhs), Span::new(l, r)).into(),
 	value2,
 }
 
 value2: Value = {
-	NOT <value2> => Operation::new_not(<>).into(),
+	<l:@L> NOT <target:value2> <r:@R> => Spanned::new(Operation::new_not(target), Span::new(l, r)).into(),
 	value1,
 }
 
 value1: Value = {
-	<value1> INCR => Operation::new_incr(<>).into(),
-	<value1> DECR => Operation::new_decr(<>).into(),
-	<target:value1> "@" "[" <index:value> "]" => Operation::new_index(target, index).into(),
+	<l:@L> <target:value1> INCR <r:@R> => Spanned::new(Operation::new_incr(target), Span::new(l, r)).into(),
+	<l:@L> <target:value1> DECR <r:@R> => Spanned::new(Operation::new_decr(target), Span::new(l, r)).into(),
+	<l:@L> <target:value1> "@" "[" <index:value> "]" <r:@R> => Spanned::new(Operation::new_index(target, index), Span::new(l, r)).into(),
 	value0,
 }
 
 value0: Value = {
 	literal => <>.into(),
-	ident => Value::new_variable(<>),
-	function_call => <>,
+	ident => <>.into(),
+	function_call => <>.into(),
 	"<" <value> ">",
 }
 
-function_call: Value = {
-	<id:ident> "(" <args:value*> ")" => Value::new_function_call(id, args),
+function_call: FunctionCall = {
+	<l:@L> <id:ident> <args:Parens<value*>> <r:@R> => FunctionCall::new(id, args, Span::new(l, r)),
 }
 
-ident: String = {
-	IDENT => <>.into(),
+ident: Ident = {
+	Spanned<IDENT> => Ident::new(<>.0.into(), <>.1),
 }
 
 literal: Constant = {
-	STRING_RAW => Constant::new_string_raw(<>[1..<>.len() - 1].into()),
-	STRING_ESC => Constant::new_string_escaped(&<>[1..<>.len() - 1]),
-	STRING_ML => Constant::new_string_multiline(&<>[3..<>.len() - 3]),
-	INT => Constant::new_num(<>.parse().unwrap_or(i64::MAX)),
-	FLOAT => Constant::new_num(<>.parse().unwrap_or(f64::MAX)),
-	TRUE => Constant::new_bool(true),
-	FALSE => Constant::new_bool(false),
-	"[" <value*> "]" => Constant::new_array(<>),
-	"{" <(<value> ":" <value>)*> "}" => Constant::new_map(<>),
+	Spanned<STRING_RAW> => Constant::new_string_raw(<>.0[1..<>.0.len() - 1].into(), <>.1),
+	Spanned<STRING_ESC> => Constant::new_string_escaped(&<>.0[1..<>.0.len() - 1], <>.1),
+	Spanned<STRING_ML> => Constant::new_string_multiline(&<>.0[3..<>.0.len() - 3], <>.1),
+	Spanned<INT> => Constant::new_num(<>.0.parse().unwrap_or(i64::MAX), <>.1),
+	Spanned<FLOAT> => Constant::new_num(<>.0.parse().unwrap_or(f64::MAX), <>.1),
+	Spanned<TRUE> => Constant::new_bool(true, <>.1),
+	Spanned<FALSE> => Constant::new_bool(false, <>.1),
+	Spanned<("[" <value*> "]")> => Constant::new_array(<>.0, <>.1),
+	Spanned<("{" <(<value> ":" <value>)*> "}")> => Constant::new_map(<>.0, <>.1),
 }
+
+type_def: Spanned<TypeDef> = {
+	<l:@L> "{" <k:type_def> ":" <v:type_def> "}" <r:@R> => (TypeDef::new_map(k, v), (l, r).into()).into(),
+	<l:@L> "[" <inner:type_def> "]" <r:@R> => (TypeDef::new_array(inner), (l, r).into()).into(),
+	Spanned<IDENT> => (TypeDef::new(<>.into()), <>.1).into(),
+}
+
+// type_def: Spanned<TypeDef> = {
+// 	<l:@L> <outer:IDENT> <inner:("<" IDENT ">")?> <r:@R> => {
+// 		Spanned::new(
+// 			TypeDef::parse(format!("{}{}", outer, inner.map(|(s, e)| format!("<{}>", s)).unwrap_or_default())).unwrap_safe(),
+// 			Span::new(l, r),
+// 		)
+// 	}
+// }
 
 // type_def: Type = {
 // 	"[" <type_def> "]" => Type::Array(Box::new(<>)),
@@ -198,4 +213,16 @@ literal: Constant = {
 
 Spanned<T>: (T, Span) = {
 	<l:@L> <value:T> <r:@R> => (value, Span::new(l, r))
+}
+
+Parens<T>: T = {
+	"(" <T> ")"
+}
+
+Left<T, O>: O = {
+	T => <>.0
+}
+
+Right<T, O>: O = {
+	T => <>.0
 }

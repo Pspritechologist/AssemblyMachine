@@ -4,85 +4,79 @@
 
 pub mod objects;
 
+pub type FnPointer = fn(&[Object]) -> Option<Object>;
+
 use objects::Object;
 
-#[repr(C)]
-pub struct MyType {
-	pub vec: Vec<i32>,
-	pub string: u128,
-}
-
-pub type FnPointer = fn(Vec<Object>) -> Object;
+/// Native function index
+type FnNI = u16;
+/// Script function index
+type FnSI = u16;
+/// Constant value index
+type ConI = u16;
+/// Register index.
+type RegI = u8;
+/// Eight bit immediate value
+type Imm1 = u8;
+// Sixteen bit immediate value
+type Imm2 = i16;
 
 #[derive(serde::Deserialize, serde::Serialize)]
 #[derive(Debug, Clone)]
 pub enum Operation {
-	/// Gracefully halts the program, returning the top value of the stack to the caller.
 	Halt	{ },
-	/// Pops a number of items from the stack.
-	Void	{ cnt: i32 },
-	/// Pushes a constant from the data array at `src` to the stack.
-	Push	{ src: i32 },
-	/// Copies the an amount of items at the top of the stack to the top of the stack.
-	Copy	{ cnt: i32 },
-	/// Clones a value an amount down from the top of the stack and pushes it to the stack.
-	Retr	{ cnt: i32 },
-	/// Swaps the top two values of the stack.
-	Swap	{ },
-	/// Adds the top two values of the stack and pushes the result to the stack.
-	Add		{ },
-	/// Subtracts the top value of the stack from the second value and pushes the result to the stack.
-	Sub		{ },
-	/// Multiplies the top two values of the stack and pushes the result to the stack.
-	Mul		{ },
-	/// Divides the second value of the stack by the top value and pushes the result to the stack.
-	Div		{ },
-	/// Mods the second value of the stack by the top value and pushes the result to the stack.
-	Mod		{ },
-	/// Negates the top value of the stack and pushes the result to the stack.
-	Neg		{ },
-	/// Compares if the top two values of the stack are equal and pushes the result to the stack.
-	Eq		{ },
-	/// Compares if the second value of the stack is less than the top value and pushes the result to the stack.
-	Lt		{ },
-	/// Compares if the second value of the stack is greater than the top value and pushes the result to the stack.
-	Gt		{ },
-	/// Compares if the second value of the stack is less than or equal to the top value and pushes the result to the stack.
-	Le		{ },
-	/// Compares if the second value of the stack is greater than or equal to the top value and pushes the result to the stack.
-	Ge		{ },
-	/// Calls a function pointer from the function table at `src` with arguments from the top of the stack and pushes the result to the stack.  
-	/// The table keeps track of how many arguments the function takes.
-	Call	{ src: i32 },
-	/// Jumps forward a static number of instructions.
-	FwJmp	{ off: i32 },
-	/// Jumps backward a static number of instructions.
-	BwJmp	{ off: i32 },
-	/// Jumps a number of instructions taken from the top of the stack.
-	VarJmp	{ },
-	/// Jumps forward a static number of instructions if the value at the top of the stack is true.
-	TFJmp	{ off: i32 },
-	/// Jumps backward a static number of instructions if the value at the top of the stack is true.
-	TBJmp	{ off: i32 },
-	/// Jumps a number of instructions taken from the top of the stack if the second value of the stack is true.
-	TVJmp	{ },
-	/// Prints the value at the top of the stack without popping it.
-	Print	{ },
-}
-
-struct MyStruct<'a> {
-	my_data: VM<'a>,
-}
-
-impl<'a> MyStruct<'_> {
-	pub fn get_data(&self) -> &'a VM {
-		&self.my_data
-	}
+	HaltR	{ src: RegI },
+	Set		{ dst: RegI, src: ConI },
+	Seti	{ dst: RegI, val: Imm2 },
+	Void 	{ dst: RegI },
+	VoidA	{ dst: RegI },
+	VoidR	{ beg: RegI, cnt: Imm1 },
+	Add		{ dst: RegI, lhs: RegI, rhs: RegI },
+	AddI	{ dst: RegI, lhs: RegI, rhs: Imm1 },
+	Sub		{ dst: RegI, lhs: RegI, rhs: RegI },
+	SubI	{ dst: RegI, lhs: RegI, rhs: Imm1 },
+	Mul		{ dst: RegI, lhs: RegI, rhs: RegI },
+	MulI	{ dst: RegI, lhs: RegI, rhs: Imm1 },
+	Div		{ dst: RegI, lhs: RegI, rhs: RegI },
+	DivI	{ dst: RegI, lhs: RegI, rhs: Imm1 },
+	Mod		{ dst: RegI, lhs: RegI, rhs: RegI },
+	ModI	{ dst: RegI, lhs: RegI, rhs: Imm1 },
+	Neg		{ dst: RegI, src: RegI },
+	Eq		{ dst: RegI, lhs: RegI, rhs: RegI },
+	EqI		{ dst: RegI, lhs: RegI, rhs: Imm1 },
+	Neq		{ dst: RegI, lhs: RegI, rhs: RegI },
+	NeqI	{ dst: RegI, lhs: RegI, rhs: Imm1 },
+	Lt		{ dst: RegI, lhs: RegI, rhs: RegI },
+	LtI		{ dst: RegI, lhs: RegI, rhs: Imm1 },
+	Gt		{ dst: RegI, lhs: RegI, rhs: RegI },
+	GtI		{ dst: RegI, lhs: RegI, rhs: Imm1 },
+	Lte		{ dst: RegI, lhs: RegI, rhs: RegI },
+	LteI	{ dst: RegI, lhs: RegI, rhs: Imm1 },
+	Gte		{ dst: RegI, lhs: RegI, rhs: RegI },
+	GteI	{ dst: RegI, lhs: RegI, rhs: Imm1 },
+	Jmp		{ off: RegI },
+	JmpI 	{ off: Imm2 },
+	CJmp	{ cnd: RegI, off: RegI },
+	CJmpI	{ cnd: RegI, off: Imm2 },
+	Reserve	{ cnt: Imm1 },
+	Enter	{ arg: RegI, add: FnSI },
+	Ret		{ ret: RegI },
+	Exit	{ },
+	Call	{ arg: RegI, fnc: FnNI },
+	ArIdx	{ dst: RegI, arr: RegI, idx: RegI },
+	ArIdxI	{ dst: RegI, arr: RegI, idx: Imm1 },
+	ArSet	{ arr: RegI, src: RegI, idx: RegI },
+	ArSetI	{ arr: RegI, src: RegI, idx: Imm1 },
+	ArPush	{ arr: RegI, src: RegI },
+	Len		{ dst: RegI, arr: RegI },
 }
 
 pub struct VM<'vm> {
 	data: &'vm [Object],
-	stack: std::cell::UnsafeCell<Vec<Object>>,
+	script_funcs: &'vm [FunctionData],
+	native_funcs: &'vm [NativeFunctionData],
+	regs: std::cell::UnsafeCell<Vec<Object>>,
+	reg_base: usize,
 	operations: &'vm [Operation],
 	index: usize,
 }
@@ -91,135 +85,258 @@ pub struct VM<'vm> {
 pub struct ByteCode {
 	pub ops: Vec<Operation>,
 	pub data: Vec<Object>,
+	pub script_funcs: Vec<FunctionData>,
+	pub native_funcs: Vec<NativeFunctionData>,
 	pub start_index: usize,
 }
 
+#[derive(Debug, Clone)]
+pub struct FunctionData {
+	pub address: usize,
+	pub arg_count: u8,
+	pub reg_size: u8,
+}
+
+#[derive(Debug, Clone)]
+pub struct NativeFunctionData {
+	pub pointer: FnPointer,
+	pub arg_count: u8,
+}
+
 impl<'vm> VM<'vm> {
-	pub fn new(operations: &'vm [Operation], data: &'vm [Object]) -> Self {
+	pub fn new(
+		operations: &'vm [Operation],
+		data: &'vm [Object],
+		native_funcs: &'vm [NativeFunctionData],
+		script_funcs: &'vm [FunctionData]
+	) -> Self {
 		VM {
 			data,
+			native_funcs,
+			script_funcs,
 			operations,
 			index: 0,
-			stack: std::cell::UnsafeCell::new(Vec::with_capacity(1024)),
+			regs: std::cell::UnsafeCell::new(Vec::with_capacity(128)),
+			reg_base: 0,
 		}
 	}
 
-	pub fn new_with_cap(operations: &'vm [Operation], data: &'vm [Object], cap: usize) -> Self {
+	pub fn new_with_cap(
+		operations: &'vm [Operation],
+		data: &'vm [Object],
+		native_funcs: &'vm [NativeFunctionData],
+		script_funcs: &'vm [FunctionData],
+		cap: usize
+	) -> Self {
 		VM {
 			data,
+			native_funcs,
+			script_funcs,
 			operations,
 			index: 0,
-			stack: std::cell::UnsafeCell::new(Vec::with_capacity(cap)),
+			regs: std::cell::UnsafeCell::new(Vec::with_capacity(cap)),
+			reg_base: 0,
 		}
 	}
 
 	pub fn new_from_bytecode(bytecode: &'vm ByteCode) -> Self {
 		VM {
 			data: &bytecode.data,
+			native_funcs: &bytecode.native_funcs,
+			script_funcs: &bytecode.script_funcs,
 			operations: &bytecode.ops,
 			index: bytecode.start_index,
-			stack: std::cell::UnsafeCell::new(Vec::with_capacity(1024)),
+			regs: std::cell::UnsafeCell::new(Vec::with_capacity(1024)),
+			reg_base: 0,
 		}
 	}
 
 	pub fn run(mut self) -> Result<Option<Object>, ()> {
-		use Operation::*;
-
-		let mut out = std::io::stdout().lock();
-
-		while self.index < self.operations.len() {
-			// unsafe { println!("{:?}", self.stack.get().as_ref_unchecked()); }
-
-			match self.operations[self.index] {
-				Halt { } => return Ok(Some(self.pop())),
-				Void { cnt } => for _ in 0..cnt { self.pop(); },
-				Push { src } => self.push(self.data[src as usize].clone()),
-				Copy { cnt } => for i in 0..cnt { self.push(self.get(self.stack_len() - i as usize - 1).clone()); },
-				Retr { cnt } => self.push(self.get(self.stack_len() - cnt as usize).clone()),
-				Swap { } => {
-					let a = self.pop();
-					let b = self.pop();
-					self.push(a);
-					self.push(b);
-				},
-				Add { } => self.push(self.pop().add(self.pop())),
-				Sub { } => self.push((self.pop().as_num() - self.pop().as_num()).into()),
-				Mul { } => self.push((self.pop().as_num() * self.pop().as_num()).into()),
-				Div { } => self.push((self.pop().as_num() / self.pop().as_num()).into()),
-				Mod { } => self.push((self.pop().as_num() % self.pop().as_num()).into()),
-				Eq { } => self.push((self.pop() == self.pop()).into()),
-				Neg { } => self.push((-self.pop().as_num()).into()),
-				Lt { } => self.push((self.pop().as_num() < self.pop().as_num()).into()),
-				Gt { } => self.push((self.pop().as_num() > self.pop().as_num()).into()),
-				Le { } => self.push((self.pop().as_num() <= self.pop().as_num()).into()),
-				Ge { } => self.push((self.pop().as_num() >= self.pop().as_num()).into()),
-				Call { src } => {
-					// let args: Vec<_> = (1..=args).map(|i| self.pop()).collect();
-					// self.push(self.pop().as_fn_pointer()(args));
-					let (fn_ptr, args) = self.data[src as usize].as_fn_pointer();
-					let args = (0..args).map(|_| self.pop()).collect();
-					self.push(fn_ptr(args));
-				},
-				FwJmp { off } => self.index += off as usize - 1,
-				BwJmp { off } => self.index -= off as usize + 1,
-				VarJmp { } => self.index = self.pop().as_num().as_i64() as usize,
-				TFJmp { off } => if self.pop().as_bool() { self.index += off as usize - 1; },
-				TBJmp { off } => if self.pop().as_bool() { self.index -= off as usize + 1; },
-				TVJmp { } => if self.pop().as_bool() { self.index = self.pop().as_num().as_i64() as usize; } else { self.pop(); },
-				Print { } => {
-					// println!("{ }", self.registers[src]);
-					std::io::Write::write_all(&mut out, &self.pop().to_string().into_bytes()).unwrap();
-					// std::io::Write::write_all(&mut out, b"\n").unwrap();
-					// std::hint::black_box(&self.get(src));
-				},
-			}
-
+		while self.index <= self.operations.len() {
 			self.index += 1;
+
+			use Operation::*;
+			match self.operations[self.index - 1] {
+				Halt { } => return Ok(None),
+				HaltR { src } => return Ok(Some(self.get(src).clone())),
+				Set { dst, src } => self.set(dst, self.data[src as usize].clone()),
+				Seti { dst, val } => self.set(dst, Object::Num((val as i64).into())),
+				Void { dst } => self.set(dst, Object::Null),
+				VoidA { dst } => (dst..self.reg_len()).for_each(|i| self.set(i, Object::Null)),
+				VoidR { beg, cnt } => (beg..(beg + cnt)).for_each(|i| self.set(i, Object::Null)),
+
+				Add { dst, lhs, rhs } => self.set(dst, (self.get(lhs).clone().add(self.get(rhs))).into()),
+				AddI { dst, lhs, rhs } => self.set(dst, (self.get(lhs).as_num() + (rhs as i64).into()).into()),
+				Sub { dst, lhs, rhs } => self.set(dst, (self.get(lhs).as_num() - self.get(rhs).as_num()).into()),
+				SubI { dst, lhs, rhs } => self.set(dst, (self.get(lhs).as_num() - (rhs as i64).into()).into()),
+				Mul { dst, lhs, rhs } => self.set(dst, (self.get(lhs).as_num() * self.get(rhs).as_num()).into()),
+				MulI { dst, lhs, rhs } => self.set(dst, (self.get(lhs).as_num() * (rhs as i64).into()).into()),
+				Div { dst, lhs, rhs } => self.set(dst, (self.get(lhs).as_num() / self.get(rhs).as_num()).into()),
+				DivI { dst, lhs, rhs } => self.set(dst, (self.get(lhs).as_num() / (rhs as i64).into()).into()),
+				Mod { dst, lhs, rhs } => self.set(dst, (self.get(lhs).as_num() % self.get(rhs).as_num()).into()),
+				ModI { dst, lhs, rhs } => self.set(dst, (self.get(lhs).as_num() % (rhs as i64).into()).into()),
+				Neg { dst, src } => self.set(dst, (-self.get(src).as_num()).into()),
+				Eq { dst, lhs, rhs } => self.set(dst, (self.get(lhs) == self.get(rhs)).into()),
+				EqI { dst, lhs, rhs } => self.set(dst, (self.get(lhs).as_num() == (rhs as i64).into()).into()),
+				Neq { dst, lhs, rhs } => self.set(dst, (self.get(lhs) != self.get(rhs)).into()),
+				NeqI { dst, lhs, rhs } => self.set(dst, (self.get(lhs).as_num() != (rhs as i64).into()).into()),
+				Lt { dst, lhs, rhs } => self.set(dst, (self.get(lhs).as_num() < self.get(rhs).as_num()).into()),
+				LtI { dst, lhs, rhs } => self.set(dst, (self.get(lhs).as_num() < (rhs as i64).into()).into()),
+				Gt { dst, lhs, rhs } => self.set(dst, (self.get(lhs).as_num() > self.get(rhs).as_num()).into()),
+				GtI { dst, lhs, rhs } => self.set(dst, (self.get(lhs).as_num() > (rhs as i64).into()).into()),
+				Lte { dst, lhs, rhs } => self.set(dst, (self.get(lhs).as_num() <= self.get(rhs).as_num()).into()),
+				LteI { dst, lhs, rhs } => self.set(dst, (self.get(lhs).as_num() <= (rhs as i64).into()).into()),
+				Gte { dst, lhs, rhs } => self.set(dst, (self.get(lhs).as_num() >= self.get(rhs).as_num()).into()),
+				GteI { dst, lhs, rhs } => self.set(dst, (self.get(lhs).as_num() >= (rhs as i64).into()).into()),
+
+				Jmp { off } => self.index = (self.index as i64 + self.get(off).as_num().as_i64()) as usize,
+				JmpI { off } => self.index = (self.index as i64 + off as i64) as usize,
+				CJmp { cnd, off } => if self.get(cnd).as_bool() { self.index = (self.index as i64 + self.get(off).as_num().as_i64()) as usize },
+				CJmpI { cnd, off } => if self.get(cnd).as_bool() { self.index = (self.index as i64 + off as i64) as usize },
+				Reserve { cnt } => {
+					let regs = self.regs.get_mut();
+
+					// regs.reserve(cnt as usize + 1);
+
+					// Pushes the old base to the register stack so it can be restored later.
+					// regs.push(Object::Num((self.reg_base as i64).into()));
+
+					// Adjusts the reg base so that the new Registers are seen as 0..cnt.
+					self.reg_base = regs.len();
+
+					// Pushes a number of empty registers to the register stack.
+					(0..cnt).for_each(|_| regs.push(Object::Null));	
+				},
+				Enter { arg: arg_index, add } => {
+					#[cfg(debug_assertions)]
+					let func = self.script_funcs.get(add as usize).expect("Function not found");
+					#[cfg(not(debug_assertions))]
+					let func = unsafe { self.script_funcs.get_unchecked(add as usize) };
+
+					//FIXME: Cleanup
+					let arg_start = self.reg_base + arg_index as usize;
+					let args = unsafe { &self.regs.get().as_ref().expect("awa")[arg_start..arg_start + func.arg_count as usize] };
+
+					let regs = self.regs.get_mut();
+
+					regs.reserve(func.reg_size as usize + 3);
+
+					// Pushes the return address for the function.
+					regs.push(Object::Num(((arg_index + func.arg_count) as i64).into()));
+					// Pushes the current execution index.
+					regs.push(Object::Num((self.index as i64).into()));
+					// Pushes the old base to the register stack so it can be restored later.
+					regs.push(Object::Num((self.reg_base as i64).into()));
+
+					// Sets the new execution index to the start of the function.
+					self.index = func.address;
+
+					// Adjusts the reg base so that the new Registers are seen as 0..cnt.
+					self.reg_base = regs.len();
+
+					// Pushes a number of empty registers to the register stack as specified by the function.
+					(0..func.reg_size).for_each(|_| regs.push(Object::Null));
+
+					// Set the arguments to the new registers.
+					args.into_iter().cloned().enumerate().for_each(|(i, arg)| self.set(i as u8, arg));
+				},
+				Ret { ret } => {
+					let value = self.get(ret).clone();
+
+					let regs = self.regs.get_mut();
+
+					// Restores the old base.
+					regs.truncate(self.reg_base as usize);
+					self.reg_base = regs.pop().unwrap().as_num().as_i64() as usize;
+					// Restores the old execution index.
+					self.index = regs.pop().unwrap().as_num().as_i64() as usize;
+					// Sets the return register to the value of the function.
+					let ret = regs.pop().unwrap().as_num().as_i64() as u8;
+					self.set(ret, value);
+				},
+				Exit { } => {
+					let regs = self.regs.get_mut();
+
+					// Restores the old base.
+					regs.truncate(self.reg_base as usize);
+					self.reg_base = regs.pop().unwrap().as_num().as_i64() as usize;
+					// Restores the old execution index.
+					self.index = regs.pop().unwrap().as_num().as_i64() as usize;
+					// Pop the return address.
+					regs.pop();
+				},
+				Call { arg, fnc } => {
+					#[cfg(debug_assertions)]
+					let func = self.native_funcs.get(fnc as usize).expect("Function not found");
+					#[cfg(not(debug_assertions))]
+					let func = unsafe { self.native_funcs.get_unchecked(fnc as usize) };
+
+					//FIXME: Cleanup
+					let args = unsafe { &self.regs.get().as_ref().expect("awa")[self.reg_base..self.reg_base + func.arg_count as usize] };
+
+					if let Some(ret) = (func.pointer)(args) {
+						self.set(arg + func.arg_count, ret);
+					}
+				},
+
+				ArIdx { dst, arr, idx } => self.set(dst, self.get(arr).as_array().as_ref().borrow()[self.get(idx).as_num().as_i64() as usize].clone()),
+				ArIdxI { dst, arr, idx } => self.set(dst, self.get(arr).as_array().as_ref().borrow()[idx as usize].clone()),
+				ArSet { arr, src, idx } => self.get(arr).as_array().borrow_mut()[self.get(idx).as_num().as_i64() as usize] = self.get(src).clone(),
+				ArSetI { arr, src, idx } => self.get(arr).as_array().borrow_mut()[idx as usize] = self.get(src).clone(),
+				ArPush { arr, src } => self.get(arr).as_array().borrow_mut().push(self.get(src).clone()),
+				Len { dst, arr } => self.set(dst, Object::Num((self.get(arr).as_array().as_ref().borrow().len() as i64).into())),
+			}
 		}
 
 		Ok(None)
 	}
 
-	fn stack_len(&self) -> usize {
+	fn get(&self, index: u8) -> &Object {
 		#[cfg(debug_assertions)]
-		unsafe { self.stack.get().as_ref().expect("Failed to get stack mutably").len() }
+		unsafe {
+			self.regs.get()
+				.as_ref()
+				.expect("Failed to get registers")
+				.get(self.reg_base + index as usize)
+				.expect("Attempted to access an out-of-bounds register")
+		}
 
 		#[cfg(not(debug_assertions))]
-		unsafe { self.stack.get().as_ref_unchecked().len() }
+		unsafe { self.regs.get().as_ref_unchecked().get_unchecked(self.reg_base + index as usize) }
 	}
 
-	fn push(&self, value: Object) {
+	fn set(&mut self, index: u8, value: Object) {
 		#[cfg(debug_assertions)]
-		unsafe { self.stack.get().as_mut().expect("Failed to get stack mutably").push(value); }
+		{
+			*self.regs.get_mut()
+				// .as_mut()
+				// .expect("Failed to get registers")
+				.get_mut(self.reg_base + index as usize)
+				.expect("Attempted to access an out-of-bounds register")
+				= value;
+		}
 
 		#[cfg(not(debug_assertions))]
-		unsafe { self.stack.get().as_mut_unchecked().push(value); }
+		unsafe { *self.regs.get().as_mut_unchecked().get_unchecked_mut(self.reg_base + index as usize) = value; }
 	}
 
-	fn pop(&self) -> Object {
+	fn reg_len(&self) -> u8 {
 		#[cfg(debug_assertions)]
-		unsafe { self.stack.get().as_mut().expect("Failed to get stack mutably").pop().expect("Attempted to pop from an empty stack") }
+		unsafe { (self.regs.get().as_ref().expect("Failed to get registers").len() - self.reg_base) as u8 }
 
 		#[cfg(not(debug_assertions))]
-		unsafe { self.stack.get().as_mut_unchecked().pop().unwrap_unchecked() }
+		unsafe { (self.regs.get().as_ref_unchecked().len() - self.reg_base) as u8 }
 	}
 
-	fn get(&self, index: usize) -> &Object {
-		#[cfg(debug_assertions)]
-		unsafe { self.stack.get().as_mut().expect("Failed to get stack mutably").get(index).unwrap_or_else(|| panic!("Attempted to access an out-of-bounds register")) }
+	// fn set
 
-		#[cfg(not(debug_assertions))]
-		unsafe { self.stack.get().as_mut_unchecked().get_unchecked(index) }
-	}
-
-	// // #[inline(always)]
-	// pub fn set(&mut self, index: usize, value: Object) {
-	// 	unsafe { *self.registers.get_unchecked_mut(index) = value; }
+	// #[inline(always)]
+	// pub fn set(&mut self, index: u8, value: Object) {
+	// 	self.regs.get_mut().
 	// }
 
 	// // #[inline(always)]
-	// pub fn get(&self, index: usize) -> &Object {
-	// 	unsafe { self.registers.get_unchecked(index) }
+	// pub fn get(&self, index: u8) -> &Object {
 	// }
 }
 

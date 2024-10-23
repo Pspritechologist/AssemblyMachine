@@ -1,0 +1,101 @@
+/ hello / Line 3
+	# Has one reg reserved, a single arg.
+
+	# Same rules as script calls.
+	# Looks up the function from the native function table.
+	# Passes a slice of X args as specified by the function lookup starting from I.
+	# Sets I to the return of the function.
+	call 1 'print'
+	exit
+
+/ get_greeting / Line 7
+	# Has one reg reserved, no args.
+	set 1 'Hello, World!'
+	# This stores the value found in I register, pops the current stack regs,
+	# pops and expects the last register base, pops and expects the return address,
+	# and then pops and expects the register to leave the return value in.
+	ret 1
+
+/ hello_1 / Line 12
+	# Has one regs reserved, no args.
+	set 1 'Hello, World!'
+	call 1 'print'
+	exit
+
+/ awa / Line 11
+	# Has zero regs reserved, no args.
+	enter 0 'hello_1'
+	exit
+
+/ _start / Line 19
+	reserve "4"
+	# Looks up the function from the script function table.
+	# The args to this call start at 0 and any return will be placed at 0.
+	# Then pushes a register containing the reg index to place the return in,
+	# then the current address,
+	# then the current register base,
+	# then pushes how ever many new registers as specified by the function lookup
+	# and adjusts the reg base to match.
+	# Sets the current address to the address specified by the function lookup.
+	enter 1 'get_greeting'
+
+	enter 1 'hello'
+
+	Line 21
+	set 1 '[]'
+	
+	enter 2 'get_greeting'
+	ar_push 1 2
+
+	set 2 'Hello, Universe!'
+	ar_push 1 2
+	
+	set 2 'Hello, Multiverse!'
+	ar_push 1 2
+
+	Line 27	
+	arindi 2 1 "0"
+	enter 2 'hello'
+
+	arindi 2 1 "1"
+	enter 2 'hello'
+
+	arindi 2 1 "2"
+	enter 2 'hello'
+
+	Line 31
+	len 2 1 # Get the length of the array.
+	seti 3 "0" # Set the counter to 0.
+
+	arind 4 1 3 # Get the element at 3.
+	enter 4 'hello'
+	addi 3 3 "1" # Increment the counter.
+	neq 4 3 2
+	cjmpi 4 "-4" # Jump back to 'ar_index' if the counter is less than the length.
+
+	# Done with the loop, clear our variables.
+	voida 2 # Voids everything 2 and above.
+
+	Line 35
+	seti 2 "12"
+
+	# Loop uwu.
+	seti 3 "0"
+
+	# Loop unnamed.
+	addi 3 3 "1"
+	# If-statement here not implemented
+	gt 4 3 2 # ii > i.
+	cjmpi 4 "4" # Break loop.
+
+	gti 4 3 50
+	cjmpi "4" # Break uwu.
+	jmpi "-5" # Restart loop.
+	# End loop unnamed.
+
+	addi 2 2 "1"
+	jmpi "-8" # Restart loop uwu.
+	# End loop uwu.
+
+	# Done with the loop, clear our variables.
+	voida 2 # Voids everything 2 and above.
